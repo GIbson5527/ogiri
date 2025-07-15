@@ -1,38 +1,60 @@
-
 import streamlit as st
+import pandas as pd
 import os
 from openai import OpenAI
 
-# --- 🔒 パスワード認証 ---
+# 🔐 パスワード認証
 PASSWORD = st.secrets.get("APP_PASSWORD", "defaultpass")
-
 input_pwd = st.text_input("🔒 パスワードを入力してください", type="password")
 if input_pwd != PASSWORD:
     st.warning("パスワードが必要です。")
     st.stop()
 
-# --- 🔑 OpenAI APIキーの読み込み ---
+# 🔑 APIキーの設定
 openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
-# --- 🔧 プロンプト生成関数 ---
-def build_prompt(topic, rules, custom_rule):
+# 📂 CSVデータ読み込み（data.csv）
+@st.cache_data
+def load_data():
+    try:
+        df = pd.read_csv("data.csv")
+        df = df.dropna()
+        df = df[df["評価値"] >= 70]  # 高評価のみ抽出
+        return df
+    except Exception as e:
+        st.error(f"CSVの読み込みに失敗しました: {e}")
+        return pd.DataFrame(columns=["お題", "ボケ", "評価値"])
+
+data_df = load_data()
+
+# 🎯 プロンプト構築
+def build_prompt(user_topic, rules, custom_rule, ref_df):
     rule_text = ""
     if rules:
         rule_text += "・" + "\n・".join(rules) + "\n"
     if custom_rule:
         rule_text += f"・{custom_rule.strip()}\n"
 
-    return f"""
+    # 類似お題の参考例（上位3件）
+    ref_lines = []
+    for i, row in ref_df.sample(min(3, len(ref_df))).iterrows():
+        ref_lines.append(f"お題「{row['お題']}」に対する高評価ボケ例：{row['ボケ']}")
+
+    examples = "\n".join(ref_lines)
+
+    prompt = f"""
 あなたは一流の大喜利芸人AIです。
 以下のお題に対して、観客から高評価を得られそうなボケを5つ考えてください。
 
 【ルール】
-{rule_text}
-・1ボケにつき1～2文以内
+{rule_text}・1ボケにつき1～2文以内
 
-【お題】
-{topic}
+【参考ボケ（実際に高評価を得たボケ）】
+{examples}
+
+【今回のお題】
+{user_topic}
 
 【回答】
 1.
@@ -41,19 +63,20 @@ def build_prompt(topic, rules, custom_rule):
 4.
 5.
 """
+    return prompt
 
-# --- 🎨 ボケ生成関数 ---
-def generate_bokes(topic, rules, custom_rule):
-    prompt = build_prompt(topic, rules, custom_rule)
+# 🔮 生成関数
+def generate_bokes(user_topic, rules, custom_rule):
+    prompt = build_prompt(user_topic, rules, custom_rule, data_df)
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.95
     )
-    text = response.choices[0].message.content
+    result = response.choices[0].message.content
 
     bokes = []
-    for line in text.splitlines():
+    for line in result.splitlines():
         if line.strip().startswith(tuple("12345")):
             boke = line.split('.', 1)[-1].strip()
             if boke:
@@ -61,7 +84,7 @@ def generate_bokes(topic, rules, custom_rule):
     return bokes
 
 # --- Streamlit UI ---
-st.title("🎭 AI大喜利youko")
+st.title("🎭 AI大喜利：データ活用ボケ生成")
 
 topic = st.text_input("🎤 お題を入力してください", "")
 
@@ -77,7 +100,6 @@ rule_options = [
         "ツッコミ風の一文にする"
 ]
 selected_rules = st.multiselect("使いたいルールを選んでください", rule_options)
-
 custom_rule = st.text_input("📝 独自のルールがあれば入力してください")
 
 if st.button("ボケを生成！") and topic:
