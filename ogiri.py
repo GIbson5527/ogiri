@@ -61,7 +61,7 @@ def generate_bokes(topic, rules, custom_rule):
     return bokes
 
 # --- Streamlit UI ---
-st.title("🎭 AI大喜利：自由にルール設定！")
+st.title("🎭 AI大喜利youko")
 
 topic = st.text_input("🎤 お題を入力してください", "")
 
