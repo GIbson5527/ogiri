@@ -20,7 +20,7 @@ def load_data():
     try:
         df = pd.read_csv("data.csv")
         df = df.dropna()
-        df = df[df["評価値"] >= 70]  # 高評価のみ抽出
+        df = df[df["評価値"] >= 75]  # 高評価のみ抽出
         return df
     except Exception as e:
         st.error(f"CSVの読み込みに失敗しました: {e}")
@@ -48,7 +48,7 @@ def build_prompt(user_topic, rules, custom_rule, ref_df):
 以下のお題に対して、観客から高評価を得られそうなボケを5つ考えてください。
 
 【ルール】
-{rule_text}・1ボケにつき1～2文以内
+{rule_text}
 
 【参考ボケ（実際に高評価を得たボケ）】
 {examples}
