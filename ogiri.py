@@ -24,7 +24,7 @@ def load_data():
         return df
     except Exception as e:
         st.error(f"CSVの読み込みに失敗しました: {e}")
-        return pd.DataFrame(columns=["お題", "ボケ", "評価値"])
+        return pd.DataFrame(columns=["お題", "回答", "評価値"])
 
 data_df = load_data()
 
@@ -39,7 +39,7 @@ def build_prompt(user_topic, rules, custom_rule, ref_df):
     # 類似お題の参考例（上位3件）
     ref_lines = []
     for i, row in ref_df.sample(min(3, len(ref_df))).iterrows():
-        ref_lines.append(f"お題「{row['お題']}」に対する高評価ボケ例：{row['ボケ']}")
+        ref_lines.append(f"お題「{row['お題']}」に対する高評価ボケ例：{row['回答']}")
 
     examples = "\n".join(ref_lines)
 
